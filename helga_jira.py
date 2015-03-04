@@ -109,7 +109,7 @@ def jira_command(client, channel, nick, message, cmd, args):
 
 
 def _rest_desc(ticket, url, auth=None):
-    api_url = to_unicode(settings.JIRA_REST_API)
+    api_url = to_unicode(getattr(settings, 'JIRA_REST_API', 'http://localhost/api/{ticket}'))
     resp = requests.get(api_url.format(ticket=ticket), auth=auth)
 
     try:
@@ -146,7 +146,7 @@ def jira_full_descriptions(client, channel, urls):
 
 
 def jira_match(client, channel, nick, message, matches):
-    jira_url = to_unicode(settings.JIRA_URL)
+    jira_url = to_unicode(getattr(settings, 'JIRA_URL', 'http://localhost/{ticket}'))
     full_urls = dict((s, jira_url.format(ticket=s)) for s in matches)
 
     if not getattr(settings, 'JIRA_SHOW_FULL_DESCRIPTION', True):
