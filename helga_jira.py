@@ -42,17 +42,19 @@ def find_jira_numbers(message):
     """
     global JIRA_PATTERNS
 
-    pat = r'(https?://.*?)?(({0})-\d+)($|[\s\W]+)'.format('|'.join(JIRA_PATTERNS))
-    tickets = []
-
     if not JIRA_PATTERNS:
-        return tickets
+        return []
 
-    for matched in re.findall(pat, message, re.IGNORECASE):
-        # if matched[0] is not empty, the ticket is in a URL. Ignore it
-        if matched[0]:
-            continue
-        tickets.append(matched[1])
+    ticket_patterns = r'({0})-[\d]+'.format('|'.join(JIRA_PATTERNS))
+
+    # Remove URLs
+    message = re.sub(r'https?://.*?{0}'.format(ticket_patterns), '', message)
+
+    # Get the tickets, but don't be too greedy. Only allow preceeding spaces or commas
+    pat = r'(^|[\s,])({0})'.format(ticket_patterns)
+    print pat
+    print re.findall(pat, message, re.IGNORECASE)
+    tickets = [m[1] for m in re.findall(pat, message, re.IGNORECASE)]
 
     return tickets
 

@@ -32,13 +32,13 @@ def test_find_jira_numbers_ignores_url():
 
 
 def test_find_jira_numbers_finds_all():
-    message = 'this ia about foo-123, bar-456, baz-789, and qux-000'
+    message = ('this ia about foo-123,bar-456,baz-789,and qux-000, '
+               'but qa-foo-999-02 and http://foo-111 should not match')
     jira.JIRA_PATTERNS = set(['foo', 'bar', 'baz'])
 
     tickets = jira.find_jira_numbers(message)
-    assert 'foo-123' in tickets
-    assert 'bar-456' in tickets
-    assert 'baz-789' in tickets
+    assert len(tickets) == 3
+    assert {'foo-123', 'bar-456', 'baz-789'} == set(tickets)
 
 
 def test_find_jira_numbers_ignores_unknown():
