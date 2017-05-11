@@ -52,8 +52,6 @@ def find_jira_numbers(message):
 
     # Get the tickets, but don't be too greedy. Only allow preceeding spaces or commas
     pat = r'(^|[\s,])({0})'.format(ticket_patterns)
-    print pat
-    print re.findall(pat, message, re.IGNORECASE)
     tickets = [m[1] for m in re.findall(pat, message, re.IGNORECASE)]
 
     return tickets
