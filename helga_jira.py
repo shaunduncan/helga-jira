@@ -32,7 +32,7 @@ def init_jira_patterns(*args, **kwargs):
         logger.warning('Cannot initialize JIRA patterns. No database connection')
         return
 
-    JIRA_PATTERNS = set(item['re'] for item in db.jira.find())
+    JIRA_PATTERNS = set(item['re'] for item in db.jira.find() if 're' in item)
 
 
 def find_jira_numbers(message):
@@ -49,6 +49,11 @@ def find_jira_numbers(message):
 
     # Remove URLs
     message = re.sub(r'https?://.*?{0}'.format(ticket_patterns), '', message)
+
+    # Find blacklisted items
+    blacklist = set(item['blacklist'] for item in db.jira.find() if 'blacklist' in item)
+    for x in blacklist:
+        message = message.replace(x, '')
 
     # Get the tickets, but don't be too greedy. Only allow preceeding spaces or commas
     pat = r'(^|[\s,])({0})'.format(ticket_patterns)
@@ -90,6 +95,35 @@ def remove_re(pattern):
     return random.choice(ACKS)
 
 
+def add_blacklist(pattern):
+    logger.info('Blacklisting string %s', pattern)
+    doc = {'blacklist': pattern}
+
+    # Store in DB
+    if not db.jira.find(doc).count():
+        db.jira.insert(doc)
+
+    return random.choice(ACKS)
+
+
+def remove_blacklist(pattern):
+    logger.info('Removing blacklist string %s', pattern)
+    db.jira.remove({'blacklist': pattern})
+    return random.choice(ACKS)
+
+
+def show_blacklist():
+    str = ['Current blacklisted strings:']
+
+    for item in db.jira.find():
+        logger.info('Checking %s', item)
+        if 'blacklist' not in item:
+            continue
+        str.append('"{}"'.format(item['blacklist']))
+
+    return ' '.join(str)
+
+
 def jira_command(client, channel, nick, message, cmd, args):
     """
     Command handler for the jira plugin
@@ -97,13 +131,22 @@ def jira_command(client, channel, nick, message, cmd, args):
     try:
         subcmd, pattern = args[:2]
     except ValueError:
-        return None
+        if args[0] == 'show_blacklist':
+            return show_blacklist()
+        else:
+            return None
 
     if subcmd == 'add_re':
         return add_re(pattern)
 
     if subcmd == 'remove_re':
         return remove_re(pattern)
+
+    if subcmd == 'add_blacklist':
+        return add_blacklist(pattern)
+
+    if subcmd == 'remove_blacklist':
+        return remove_blacklist(pattern)
 
     return None
 
@@ -128,21 +171,24 @@ def jira_full_descriptions(client, channel, urls):
     """
     Meant to be run asynchronously because it uses the network
     """
-    descriptions = []
-    user_pass = getattr(settings, 'JIRA_AUTH', ('', ''))
+    try:
+        descriptions = []
+        user_pass = getattr(settings, 'JIRA_AUTH', ('', ''))
 
-    if all(user_pass):
-        auth = HTTPBasicAuth(*user_pass)
-    else:
-        auth = None
+        if all(user_pass):
+            auth = HTTPBasicAuth(*user_pass)
+        else:
+            auth = None
 
-    for ticket, url in urls.iteritems():
-        desc = _rest_desc(ticket, url, auth)
-        if desc is not None:
-            descriptions.append(desc)
+        for ticket, url in urls.iteritems():
+            desc = _rest_desc(ticket, url, auth)
+            if desc is not None:
+                descriptions.append(desc)
 
-    if descriptions:
-        client.msg(channel, '\n'.join(descriptions))
+        if descriptions:
+            client.msg(channel, '\n'.join(descriptions))
+    except Exception:
+        logger.exception('OOOOPS')
 
 
 def jira_match(client, channel, nick, message, matches):
@@ -159,7 +205,7 @@ def jira_match(client, channel, nick, message, matches):
 
 @match(find_jira_numbers)
 @command('jira', help="Add or remove jira ticket patterns, excludeing numbers."
-                      "Usage: helga jira (add_re|remove_re) <pattern>")
+                      "Usage: helga jira (add_re|remove_re|add_blacklist|remove_blacklist|show_blacklist) <pattern>")  # noqa
 def jira(client, channel, nick, message, *args):
     """
     A plugin for showing URLs to JIRA ticket numbers. This is both a command to add or remove
