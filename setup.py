@@ -27,7 +27,7 @@ if pip_version >= (1, 5):
 
 setup(
     name='helga-jira',
-    version='0.1.3',
+    version='0.1.4',
     description=("A helga plugin that can be used to store responses "
                  "that can be returned from a question"),
     classifiers=[
